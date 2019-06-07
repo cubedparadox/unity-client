@@ -2,11 +2,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
-using System.Text;
 using System.IO;
-using System.IO.Compression;
+using System.Net;
 using Zlib;
-using System.Web;
 using TMPro;
 
 public class Parcel : MonoBehaviour
@@ -14,30 +12,22 @@ public class Parcel : MonoBehaviour
     private UInt16[,,] field;
     private GameObject player;
     public ParcelDescription description;
-    private bool loaded;
 
-    public void SetDescription(ParcelDescription d)
+    public Material atlasMaterial;
+    public Material glassMaterial;
+    public Material imageMaterial;
+
+    public void SetDescription(ParcelDescription d, Material atlasMat, Material glassMat, Material imageMat)
     {
         description = d;
-        loaded = false;
+
+        atlasMaterial = atlasMat;
+        glassMaterial = glassMat;
+        imageMaterial = imageMat;
+        
         field = new UInt16[Width() * 2, Height() * 2, Depth() * 2];
-        player = GameObject.Find("main-player");
-    }
-
-    void Update()
-    {
-        if (loaded || !player)
-        {
-            return;
-        }
-
-        float InRangeDistance = 64.0f;
-
-        if (Vector3.Distance(gameObject.transform.position, player.transform.position) < InRangeDistance)
-        {
-            loaded = true;
-            Load();
-        }
+        
+        Load();
     }
 
     int Width()
@@ -97,8 +87,7 @@ public class Parcel : MonoBehaviour
 
     public IEnumerator LoadImage(FeatureDescription d)
     {
-        Material imageMat = GameObject.Find("ImageCube").GetComponent<Renderer>().material as Material;
-        Material mat = new Material(imageMat.shader);
+        Material mat = new Material(imageMaterial.shader);
 
         GameObject plane = GameObject.CreatePrimitive(PrimitiveType.Plane);
         plane.GetComponent<MeshFilter>().mesh = CreatePlane();
@@ -107,7 +96,7 @@ public class Parcel : MonoBehaviour
 
         SetCommon(plane, d);
 
-        string url = "https://img.cryptovoxels.com/img.php?url=" + HttpUtility.UrlEncode(d.url) + "&mode=color";
+        string url = "https://img.cryptovoxels.com/img.php?url=" + WebUtility.UrlEncode(d.url) + "&mode=color";
         using (WWW www = new WWW(url))
         {
             // Wait for download to complete
@@ -119,19 +108,12 @@ public class Parcel : MonoBehaviour
 
     public void CreateSign(FeatureDescription d)
     {
-        Material imageMat = GameObject.Find("ImageCube").GetComponent<Renderer>().material as Material;
-        Material mat = new Material(imageMat.shader);
-
-        GameObject go = Instantiate(GameObject.Find("SignText"));
-
-        // plane.AddComponent<TextMeshPro>();
-        // plane.GetComponent<MeshFilter>().mesh = CreatePlane();
-        // plane.GetComponent<Renderer>().material = mat;
-        // plane.GetComponent<MeshCollider>().enabled = false;
+        GameObject go = new GameObject("SignText", typeof(TextMeshPro)); 
 
         TextMeshPro text = go.GetComponent<TextMeshPro>();
         text.text = d.text;
-        text.fontSize = 1;
+        text.autoSizeTextContainer = true;
+        text.color = Color.black;
 
         SetCommon(go, d);
 
@@ -159,38 +141,48 @@ public class Parcel : MonoBehaviour
 
     public void Load()
     {
-        Material atlasMaterial = GameObject.Find("ProtoCube").GetComponent<Renderer>().material as Material;
-        Material glassMaterial = GameObject.Find("GlassCube").GetComponent<Renderer>().material as Material;
-
         Vector3 offset = new Vector3(0.5f, 0, 0.125f);
 
-        GameObject solid = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        solid.name = "solid-voxels";
-        solid.transform.SetParent(transform, false);
-        solid.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-        solid.transform.localPosition = new Vector3(-Width() / 2f, 0, -Depth() / 2f) + offset;
-        solid.GetComponent<Renderer>().material = atlasMaterial;
+        Mesh solidMesh = GenerateField(false);
+        if (solidMesh.vertexCount > 0)
+        {
+            GameObject solid = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            solid.name = "solid-voxels";
+            solid.transform.SetParent(transform, false);
+            solid.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+            solid.transform.localPosition = new Vector3(-Width() / 2f, 0, -Depth() / 2f) + offset;
+            solid.GetComponent<Renderer>().material = atlasMaterial;
+            solid.GetComponent<MeshFilter>().mesh = solidMesh;
 
-        Mesh mesh = GenerateField(false);
-        solid.GetComponent<MeshFilter>().mesh = mesh;
+            MeshCollider collider = solid.AddComponent<MeshCollider>();
+            collider.sharedMesh = solidMesh;
+        }
 
-        MeshCollider collider = solid.AddComponent(typeof(MeshCollider)) as MeshCollider;
-        collider.sharedMesh = mesh;
+        Mesh glassMesh = GenerateField(true);
+        if (glassMesh.vertexCount > 0)
+        {
+            GameObject glass = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            glass.name = "glass-voxels";
+            glass.transform.SetParent(transform, false);
+            glass.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+            glass.transform.localPosition = new Vector3(-Width() / 2f + 0, 0, -Depth() / 2f) + offset;
+            glass.GetComponent<Renderer>().material = glassMaterial;
+            glass.GetComponent<MeshFilter>().mesh = glassMesh;
 
-        GameObject glass = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        glass.name = "glass-voxels";
-        glass.transform.SetParent(transform, false);
-        glass.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-        glass.transform.localPosition = new Vector3(-Width() / 2f + 0, 0, -Depth() / 2f) + offset;
-        glass.GetComponent<Renderer>().material = glassMaterial;
-
-        mesh = GenerateField(true);
-        glass.GetComponent<MeshFilter>().mesh = mesh;
-
-        collider = solid.AddComponent(typeof(MeshCollider)) as MeshCollider;
-        collider.sharedMesh = mesh;
+            MeshCollider collider = glass.AddComponent<MeshCollider>();
+            collider.sharedMesh = glassMesh;
+        }
 
         LoadFeatures();
+
+        if (transform.childCount > 0)
+        {
+            DestroyImmediate(this);
+        }
+        else
+        {
+            DestroyImmediate(gameObject);
+        }
     }
 
     long GetVoxel(int x, int y, int z)
@@ -248,6 +240,124 @@ public class Parcel : MonoBehaviour
         return transparent ? index == 2 : index > 2;
     }
 
+    private static string[] _colorTable =
+    {
+        "#ffffff",
+        "#888888",
+        "#000000",
+        "#ff71ce",
+        "#01cdfe",
+        "#05ffa1",
+        "#b967ff",
+        "#fffb96"
+    };
+    
+    private Color UIntToColor(long color)
+    {
+        //string binary = Convert.ToString(color, 2);
+        //binary = binary.Remove(binary.Length - 2 - 1, 2);
+        //uint newValue = Convert.ToUInt32(binary, 2);
+        //uint c = color;// - (byte) color;//  (byte)(color & ~(1 << 4));
+        string debug = "";
+        if (color >= 32768)
+        {
+            color -= 32768;
+            debug += "big ";
+        }
+
+        if (color == 0)
+        {
+            return Color.white;
+        }
+
+        if (color > 32)
+        {
+            //uint colorIndex = (uint)Mathf.Floor(color / 32.0f);
+            //Debug.Log(color-32);
+            
+            Color col;
+            int index = (int) Mathf.Floor(color / 32f);
+            if(index >= _colorTable.Length)
+            {
+                return Color.magenta;
+            }
+            ColorUtility.TryParseHtmlString(_colorTable[index], out col);
+            return col;// Color.magenta;
+        }
+
+        //Color col;
+        //Texture Ids here
+        //ColorUtility.TryParseHtmlString(_colorTable[color-1], out col);
+        return Color.white;
+        /*
+        uint colorIndex = (uint)Mathf.Floor(color / 32.0f);
+        
+        // Is tiles inverted?
+        if (colorIndex == 2) {
+            float inverted = 1.0f;
+            return Color.white;
+        } else {
+            float inverted = 0.0f;
+            //Color colorValue = _colorTable[colorIndex];
+            
+            try
+            {
+                Color col;
+                ColorUtility.TryParseHtmlString(_colorTable[colorIndex], out col);
+                return col;
+            }
+            catch
+            {
+                Debug.LogError(colorIndex);
+                return  Color.magenta;
+            }
+            
+        }
+        
+        //ColorUtility.TryParseHtmlString(_colorTable[c < 8 ? c : c - 1], out col);
+        //c = c << 4;
+        //c = 
+        //uint c = color & 0x00F000;
+        //c = c >> 4;
+        //c = c & 0x0000F0;
+        
+        //Debug.Log(c);
+        
+
+        //return col;
+        //byte r = (byte)(color >> 16);
+        //byte g = (byte)(color >> 8);
+        //byte b = (byte)(color >> 0);
+        //return new Color(r,g,b);
+        */
+    }
+
+    private Color ColorFromUVs(float uvx)
+    {
+        uint colorIndex = (uint)Mathf.Floor(uvx / 32.0f);
+        
+        if (colorIndex == 2) {
+       //     float inverted = 1.0f;
+            return Color.white;
+        } else {
+         //   float inverted = 0.0f;
+            //Color colorValue = _colorTable[colorIndex];
+            
+            try
+            {
+                Color col;
+                ColorUtility.TryParseHtmlString(_colorTable[colorIndex], out col);
+                return col;
+            }
+            catch
+            {
+                Debug.LogError(colorIndex);
+                return  Color.magenta;
+            }
+            
+        }
+    }
+    
     public Mesh GenerateField (Boolean transparent) { 
         byte[] input = Convert.FromBase64String(description.voxels);
         byte[] output = Inflate(input);
@@ -257,6 +367,7 @@ public class Parcel : MonoBehaviour
         List<Vector3> newVertices = new List<Vector3>();
         List<Vector2> newUV = new List<Vector2>();
         List<int> newTriangles = new List<int>();
+        List<Color> newColors = new List<Color>();
 
         for (int x = -1; x < Width() * 2; x++)
         {
@@ -264,9 +375,7 @@ public class Parcel : MonoBehaviour
             {
                 for (int z = -1; z < Depth() * 2; z++)
                 {
-
                     long i = GetVoxel(x, y, z);
-
                     long nX = GetVoxel(x + 1, y, z);
                     long nY = GetVoxel(x, y + 1, z);
                     long nZ = GetVoxel(x, y, z + 1);
@@ -275,11 +384,11 @@ public class Parcel : MonoBehaviour
                     {
                         int v = newVertices.Count;
 
-                        newVertices.Add(new Vector3(x + 1, y, z));
                         newVertices.Add(new Vector3(x + 1, y + 1, z));
-                        newVertices.Add(new Vector3(x + 1, y, z + 1));
                         newVertices.Add(new Vector3(x + 1, y + 1, z + 1));
-
+                        newVertices.Add(new Vector3(x + 1, y, z));
+                        newVertices.Add(new Vector3(x + 1, y, z + 1));
+                        
                         if (i > nX)
                         {
                             newTriangles.Add(v + 0);
@@ -289,8 +398,13 @@ public class Parcel : MonoBehaviour
                             newTriangles.Add(v + 1);
                             newTriangles.Add(v + 3);
                             newTriangles.Add(v + 2);
-
+                            
                             AddUvs(i, transparent, newUV);
+                            
+                            newColors.Add(UIntToColor(i));
+                            newColors.Add(UIntToColor(i));
+                            newColors.Add(UIntToColor(i));
+                            newColors.Add(UIntToColor(i));
                         }
                         else
                         {
@@ -303,7 +417,15 @@ public class Parcel : MonoBehaviour
                             newTriangles.Add(v + 1);
 
                             AddUvs(nX, transparent, newUV);
+                            
+                            newColors.Add(UIntToColor(nX));
+                            newColors.Add(UIntToColor(nX));
+                            newColors.Add(UIntToColor(nX));
+                            newColors.Add(UIntToColor(nX));
                         }
+                        
+                        
+                        
                     }
 
                     if (IsGeometry(i, transparent) != IsGeometry(nY, transparent))
@@ -325,7 +447,12 @@ public class Parcel : MonoBehaviour
                             newTriangles.Add(v + 3);
                             newTriangles.Add(v + 2);
 
-                            AddUvs(i, transparent, newUV);
+                            AddUvs(nY, transparent, newUV);
+                            
+                            newColors.Add(UIntToColor(nY));
+                            newColors.Add(UIntToColor(nY));
+                            newColors.Add(UIntToColor(nY));
+                            newColors.Add(UIntToColor(nY));
                         }
                         else
                         {
@@ -337,8 +464,14 @@ public class Parcel : MonoBehaviour
                             newTriangles.Add(v + 3);
                             newTriangles.Add(v + 1);
 
-                            AddUvs(nY, transparent, newUV);
+                            AddUvs(i, transparent, newUV);
+                            
+                            newColors.Add(UIntToColor(i));
+                            newColors.Add(UIntToColor(i));
+                            newColors.Add(UIntToColor(i));
+                            newColors.Add(UIntToColor(i));
                         }
+
                     }
 
                     if (IsGeometry(i, transparent) != IsGeometry(nZ, transparent))
@@ -361,6 +494,11 @@ public class Parcel : MonoBehaviour
                             newTriangles.Add(v + 2);
 
                             AddUvs(i, transparent, newUV);
+                            
+                            newColors.Add(UIntToColor(i));
+                            newColors.Add(UIntToColor(i));
+                            newColors.Add(UIntToColor(i));
+                            newColors.Add(UIntToColor(i));
                         }
                         else
                         {
@@ -373,6 +511,11 @@ public class Parcel : MonoBehaviour
                             newTriangles.Add(v + 1);
 
                             AddUvs(nZ, transparent, newUV);
+
+                            newColors.Add(UIntToColor(nZ));
+                            newColors.Add(UIntToColor(nZ));
+                            newColors.Add(UIntToColor(nZ));
+                            newColors.Add(UIntToColor(nZ));
                         }
                     }
                 }
@@ -383,6 +526,7 @@ public class Parcel : MonoBehaviour
         mesh.vertices = newVertices.ToArray();
         mesh.uv = newUV.ToArray();
         mesh.triangles = newTriangles.ToArray();
+        mesh.colors = newColors.ToArray();
         mesh.RecalculateNormals();
 
         return mesh;
