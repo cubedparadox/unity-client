@@ -4,6 +4,7 @@ A set of editor tools for importing cryptovoxel data into Unity, primarly for us
 
 Quick start:
 - Open in Unity 2017.4
+- Import TextMeshPro from the asset store (script dependency)
 - Open the tools via Window/CryptoVoxel
 - Assign the materials from the Materials folder in assets (will error if they aren't all set)
 - Set options
