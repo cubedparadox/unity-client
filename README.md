@@ -2,6 +2,21 @@
 
 A set of editor tools for importing cryptovoxel data into Unity, primarly for use in VRChat.
 
+Quick start:
+- Open in Unity 2017.4
+- Open the tools via Window/CryptoVoxel
+- Assign the materials from the Materials folder in assets (will error if they aren't all set)
+- Set options
+- Hit "Import Voxels"
+- Wait a while, unity will hang while loading
+- Options:
+- Max Parcels
+-- Limit how many parcels spawn, set to 0 for unlimited
+- Max Distance/Center Position
+-- Limit parcel spawning to a region around Center Position with radius Max Distance. Set to 0 distance for unlimited
+- Suburb
+-- Limit parcel spawning to a specific suburb. Case sensitive, leave blank for unlimited
+
 Currently supports:
 - Loading parcels in as meshes
 - Loading default voxel colors and textures
