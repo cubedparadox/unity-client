@@ -6,6 +6,7 @@ using System.IO;
 using System.Net;
 using Zlib;
 using TMPro;
+using UnityEditor;
 
 public class Parcel : MonoBehaviour
 {
@@ -87,7 +88,7 @@ public class Parcel : MonoBehaviour
 
     public IEnumerator LoadImage(FeatureDescription d)
     {
-        Material mat = new Material(imageMaterial.shader);
+        Material mat = imageMaterial;
 
         GameObject plane = GameObject.CreatePrimitive(PrimitiveType.Plane);
         plane.GetComponent<MeshFilter>().mesh = CreatePlane();
@@ -284,78 +285,31 @@ public class Parcel : MonoBehaviour
             ColorUtility.TryParseHtmlString(_colorTable[index], out col);
             return col;// Color.magenta;
         }
-
-        //Color col;
-        //Texture Ids here
-        //ColorUtility.TryParseHtmlString(_colorTable[color-1], out col);
         return Color.white;
-        /*
-        uint colorIndex = (uint)Mathf.Floor(color / 32.0f);
-        
-        // Is tiles inverted?
-        if (colorIndex == 2) {
-            float inverted = 1.0f;
-            return Color.white;
-        } else {
-            float inverted = 0.0f;
-            //Color colorValue = _colorTable[colorIndex];
-            
-            try
-            {
-                Color col;
-                ColorUtility.TryParseHtmlString(_colorTable[colorIndex], out col);
-                return col;
-            }
-            catch
-            {
-                Debug.LogError(colorIndex);
-                return  Color.magenta;
-            }
-            
-        }
-        
-        //ColorUtility.TryParseHtmlString(_colorTable[c < 8 ? c : c - 1], out col);
-        //c = c << 4;
-        //c = 
-        //uint c = color & 0x00F000;
-        //c = c >> 4;
-        //c = c & 0x0000F0;
-        
-        //Debug.Log(c);
-        
 
-        //return col;
-        //byte r = (byte)(color >> 16);
-        //byte g = (byte)(color >> 8);
-        //byte b = (byte)(color >> 0);
-        //return new Color(r,g,b);
-        */
     }
 
     private Color ColorFromUVs(float uvx)
     {
         uint colorIndex = (uint)Mathf.Floor(uvx / 32.0f);
         
-        if (colorIndex == 2) {
-       //     float inverted = 1.0f;
+        if (colorIndex == 2) 
+        {
             return Color.white;
-        } else {
-         //   float inverted = 0.0f;
-            //Color colorValue = _colorTable[colorIndex];
-            
-            try
-            {
-                Color col;
-                ColorUtility.TryParseHtmlString(_colorTable[colorIndex], out col);
-                return col;
-            }
-            catch
-            {
-                Debug.LogError(colorIndex);
-                return  Color.magenta;
-            }
-            
+        } 
+        
+        try
+        {
+            Color col;
+            ColorUtility.TryParseHtmlString(_colorTable[colorIndex], out col);
+            return col;
         }
+        catch
+        {
+            Debug.LogError(colorIndex);
+            return  Color.magenta;
+        }
+        
     }
     
     public Mesh GenerateField (Boolean transparent) { 
@@ -523,12 +477,34 @@ public class Parcel : MonoBehaviour
         }
 
         Mesh mesh = new Mesh();
-        mesh.vertices = newVertices.ToArray();
-        mesh.uv = newUV.ToArray();
-        mesh.triangles = newTriangles.ToArray();
-        mesh.colors = newColors.ToArray();
+        mesh.SetVertices(newVertices);
+        mesh.SetUVs(0, newUV);
+        mesh.SetTriangles(newTriangles, 0);
+        mesh.SetColors(newColors);
         mesh.RecalculateNormals();
+        mesh.UploadMeshData(false);
+        mesh.RecalculateBounds();
+        
+        //Mesh mewMesh = new Mesh();
+        //CombineInstance[] combineInstance = new CombineInstance[1];
+        //combineInstance[0] = new CombineInstance();
+        //combineInstance[0].mesh = mesh;
+        //mewMesh.CombineMeshes(combineInstance, false, false);
 
+        
+        
+        //if (!AssetDatabase.IsValidFolder("Assets/CryptoVoxels/Meshes"))
+        //{
+        //    AssetDatabase.CreateFolder("Assets/CryptoVoxels", "Meshes");    
+        //}
+//
+        //string path = "Assets/CryptoVoxels/Meshes/" + description.id + "_" + mesh.GetHashCode() + ".Asset";
+        //AssetDatabase.CreateAsset(mesh, path);
+        //AssetDatabase.ImportAsset(path);
+        //AssetDatabase.Refresh();
+        //ModelImporter model = AssetImporter.GetAtPath(path) as ModelImporter;
+        //model.generateSecondaryUV = true;
+        
         return mesh;
     }
 

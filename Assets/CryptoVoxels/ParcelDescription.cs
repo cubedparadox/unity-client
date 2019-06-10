@@ -3,6 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
+public class ParcelsContainer
+{
+	public ParcelDescription[] parcels;
+	public string[] suburbs;
+}
+
+[System.Serializable]
 public class ParcelDescription
 {
 	public int id;
