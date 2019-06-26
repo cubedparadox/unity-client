@@ -17,7 +17,7 @@ public class Parcel : MonoBehaviour
     public Material atlasMaterial;
     public Material glassMaterial;
     public Material imageMaterial;
-
+    
     public void SetDescription(ParcelDescription d, Material atlasMat, Material glassMat, Material imageMat)
     {
         description = d;
@@ -102,6 +102,10 @@ public class Parcel : MonoBehaviour
         {
             // Wait for download to complete
             yield return www;
+            mat = new Material(imageMaterial);
+            mat.name = WebUtility.UrlEncode(d.url);
+            plane.GetComponent<Renderer>().material = mat;
+            Debug.Log("Got url " + url);
             mat.mainTexture = www.texture;
         }
     }
@@ -125,18 +129,27 @@ public class Parcel : MonoBehaviour
         go.transform.localPosition += new Vector3(0, 0, -0.125f);
     }
 
-    public void LoadFeatures()
+    public IEnumerator LoadFeatures()
     {
         foreach (FeatureDescription d in description.features)
         {
             if (d.type == "image")
             {
                 IEnumerator coroutine = LoadImage(d);
-                StartCoroutine(coroutine);
+                yield return coroutine;
             } else if (d.type == "sign")
             {
                 CreateSign(d);
             }
+        }
+
+        if (transform.childCount > 0)
+        {
+            DestroyImmediate(this);
+        }
+        else
+        {
+            DestroyImmediate(gameObject);
         }
     }
 
@@ -174,16 +187,7 @@ public class Parcel : MonoBehaviour
             collider.sharedMesh = glassMesh;
         }
 
-        LoadFeatures();
-
-        if (transform.childCount > 0)
-        {
-            DestroyImmediate(this);
-        }
-        else
-        {
-            DestroyImmediate(gameObject);
-        }
+        StartCoroutine(LoadFeatures());
     }
 
     long GetVoxel(int x, int y, int z)
