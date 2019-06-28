@@ -27,8 +27,7 @@ public class Parcel : MonoBehaviour
         imageMaterial = imageMat;
         
         field = new UInt16[Width() * 2, Height() * 2, Depth() * 2];
-        
-        Load();
+        StartCoroutine(Load());
     }
 
     int Width()
@@ -153,7 +152,7 @@ public class Parcel : MonoBehaviour
         }
     }
 
-    public void Load()
+    public IEnumerator Load()
     {
         Vector3 offset = new Vector3(0.5f, 0, 0.125f);
 
@@ -165,7 +164,22 @@ public class Parcel : MonoBehaviour
             solid.transform.SetParent(transform, false);
             solid.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
             solid.transform.localPosition = new Vector3(-Width() / 2f, 0, -Depth() / 2f) + offset;
-            solid.GetComponent<Renderer>().material = atlasMaterial;
+            if (description.tileset != "" && description.tileset != null) {
+                string url = "https://img.cryptovoxels.com" + description.tileset;
+                using (WWW www = new WWW(url))
+                {
+                    // Wait for download to complete
+                    yield return www;
+                    Material mat = new Material(atlasMaterial);
+                    mat.name = "solid-voxels_parcel-" + description.id.ToString();
+                    solid.GetComponent<Renderer>().material = mat;
+                    Debug.Log("Got tileset url " + url);
+                    mat.mainTexture = www.texture;
+                }
+            }
+            else {
+                solid.GetComponent<Renderer>().material = atlasMaterial;
+            }
             solid.GetComponent<MeshFilter>().mesh = solidMesh;
 
             MeshCollider collider = solid.AddComponent<MeshCollider>();
@@ -187,7 +201,7 @@ public class Parcel : MonoBehaviour
             collider.sharedMesh = glassMesh;
         }
 
-        StartCoroutine(LoadFeatures());
+        yield return LoadFeatures();
     }
 
     long GetVoxel(int x, int y, int z)
