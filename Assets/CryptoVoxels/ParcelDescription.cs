@@ -21,6 +21,7 @@ public class ParcelDescription
 	public int z2;
 	public string name;
 	public string voxels;
+	public string tileset;
 	public FeatureDescription[] features;
 }
 
